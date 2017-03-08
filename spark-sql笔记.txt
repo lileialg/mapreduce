@@ -1,0 +1,243 @@
+create table infor(id int,name string,addr string)
+row format delimited
+fields terminated by ','
+stored as textfile;
+
+sqlContext.sql("create table infor4(id int,name string,addr string)row format delimited fields terminated by ',' stored as textfile")
+
+val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+import sqlContext.implicits._
+
+
+object SparkSQLHiveOnYarn {
+
+  def main(args: Array[String]) {
+    val sparkConf = new SparkConf().setAppName("SparkSQLHiveOnYarn")
+    val sc = new SparkContext(sparkConf)
+
+    val hiveContext = new HiveContext(sc)
+    import hiveContext.implicits._
+    import hiveContext.sql
+
+    //在数据库liuxiaowen中创建表 lxw1234
+    println("create table lxw1234 .. ")
+    sql("USE liuxiaowen")
+    sql("CREATE TABLE IF NOT EXISTS lxw1234 (cate STRING, cate_id INT) STORED AS TEXTFILE")
+
+    //从已存在的源表lxw_cate_id插入数据到目标表lxw1234
+    println("insert data into table lxw1234 .. ")
+    sql("INSERT OVERWRITE TABLE lxw1234 select cate,cate_id FROM lxw_cate_id")
+
+    //目标表lxw1234的记录数
+    println("Result of 'select count(1) from lxw1234': ")
+    val count = sql("SELECT COUNT(1) FROM lxw1234").collect().head.getLong(0)
+    println(s"lxw1234 COUNT(1): $count")
+
+    //源表lxw_cate_id的记录数
+    println("Result of 'select count(1) from lxw_cate_id': ")
+    val count2 = sql("SELECT COUNT(1) FROM lxw_cate_id").collect().head.getLong(0)
+    println(s"lxw_cate_id COUNT(1): $count2")
+
+    //目标表lxw1234的limit 5记录
+    println("Result of 'SELECT * from lxw1234 limit 10': ")
+    sql("SELECT * FROM lxw1234 limit 5").collect().foreach(println)
+
+    //sleep 10分钟，为了从WEB界面上看日志
+    Thread.sleep(600000)
+    sc.stop()
+
+  }
+}
+
+{"name":"Michael"}
+{"name":"Andy", "age":30}
+{"name":"Justin", "age":19}
+
+
+import org.apache.spark.sql.SparkSession
+
+val spark = SparkSession
+  .builder()
+  .appName("Spark SQL basic example")
+  .config("spark.some.config.option", "some-value")
+  .getOrCreate()
+  
+  
+  
+  {"name":"Michael"}
+{"name":"Andy", "age":30}
+{"name":"Justin", "age":19}
+{"name":"Justin", "age":19}
+
+
+
+sqlContext.read.json("")
+
+
+
+
+scala> sqlContext.sql("select * from person ").write.format("json").save("predictj")  
+scala> sqlContext.sql("select * from predict ").write.format("parquet").save("predictp")  
+scala> sqlContext.sql("select * from predict ").write.format("orc").save("predicto")  
+
+
+
+
+al sqlContext = new org.apache.spark.sql.SQLContext(sc)
+
+// 导入语句，可以隐式地将RDD转化成DataFrame
+import sqlContext.implicits._
+
+// 创建一个表示客户的自定义类
+case class Customer(customer_id: Int, name: String, city: String, state: String, zip_code: String)
+
+// 用数据集文本文件创建一个Customer对象的DataFrame
+val dfCustomers = sc.textFile("data/customers.txt").map(_.split(",")).map(p => Customer(p(0).trim.toInt, p(1), p(2), p(3), p(4))).toDF()
+
+// 将DataFrame注册为一个表
+dfCustomers.registerTempTable("customers")
+
+// 显示DataFrame的内容
+dfCustomers.show()
+
+// 打印DF模式
+dfCustomers.printSchema()
+
+// 选择客户名称列
+dfCustomers.select("name").show()
+
+// 选择客户名称和城市列
+dfCustomers.select("name", "city").show()
+
+// 根据id选择客户
+dfCustomers.filter(dfCustomers("customer_id").equalTo(500)).show()
+
+// 根据邮政编码统计客户数量
+dfCustomers.groupBy("zip_code").count().show()
+
+scala> sqlContext.sql("select * from tab2")
+res15: org.apache.spark.sql.DataFrame = [id: int, name: string, addr: string]
+
+scala> res15.
+agg            collect           drop             flatMap            intersect       na                  repartition         selectExpr             toDF          where               
+alias          collectAsList     dropDuplicates   foreach            isInstanceOf    orderBy             rollup              show                   toJSON        withColumn          
+apply          columns           dtypes           foreachPartition   isLocal         persist             sample              sort                   toJavaRDD     withColumnRenamed   
+as             count             except           groupBy            javaRDD         printSchema         save                sortWithinPartitions   toSchemaRDD   write               
+asInstanceOf   createJDBCTable   explain          head               join            queryExecution      saveAsParquetFile   sqlContext             toString                          
+cache          cube              explode          inputFiles         limit           randomSplit         saveAsTable         stat                   transform                         
+coalesce       describe          filter           insertInto         map             rdd                 schema              take                   unionAll                          
+col            distinct          first            insertIntoJDBC     mapPartitions   registerTempTable   select              takeAsList             unpersist                         
+
+scala> res15.to
+toDF   toJSON   toJavaRDD   toSchemaRDD   toString
+
+scala> res15.map(x=>x)
+res16: org.apache.spark.rdd.RDD[org.apache.spark.sql.Row] = MapPartitionsRDD[45] at map at <console>:28
+
+scala> res15.map(x=>x._1)
+<console>:28: error: value _1 is not a member of org.apache.spark.sql.Row
+       res15.map(x=>x._1)
+                      ^
+
+scala> res15.map(x=>x.length)
+res18: org.apache.spark.rdd.RDD[Int] = MapPartitionsRDD[46] at map at <console>:28
+
+scala> res18.collect
+res19: Array[Int] = Array(3, 3, 3, 3, 3, 3, 3, 3, 3, 3)
+
+scala> res15.map(x=>x(1))
+res20: org.apache.spark.rdd.RDD[Any] = MapPartitionsRDD[47] at map at <console>:28
+
+scala> res20.collect
+res21: Array[Any] = Array(name3930031, name3930032, name3930033, name3930034, name3930035, name3930036, name3930037, name3930038, name3930039, name3930040)
+
+
+
+ res15.map(x=>MyByte(x(0),x(1),x(2).getBytes)).toDF()
+
+
+import sqlContext.implicits._
+
+case class MyByte(customer_id: Int, name: String, addr: Array[Byte])
+
+scala> res32.take(1)
+res34: Array[org.apache.spark.sql.Row] = Array([3930031,name3930031,[B@3771ebd0])
+
+scala> res32.rdd.
+++             context               filterWith          getNumPartitions   iterator                   max                  randomSplit        subtract          top               
+aggregate      count                 first               getStorageLevel    keyBy                      min                  reduce             take              treeAggregate     
+asInstanceOf   countApprox           flatMap             glom               localCheckpoint            name                 repartition        takeOrdered       treeReduce        
+cache          countApproxDistinct   flatMapWith         groupBy            map                        name_=               sample             takeSample        union             
+cartesian      countByValue          fold                id                 mapPartitions              partitioner          saveAsObjectFile   toArray           unpersist         
+checkpoint     countByValueApprox    foreach             intersection       mapPartitionsWithContext   partitions           saveAsTextFile     toDebugString     zip               
+coalesce       dependencies          foreachPartition    isCheckpointed     mapPartitionsWithIndex     persist              setName            toJavaRDD         zipPartitions     
+collect        distinct              foreachWith         isEmpty            mapPartitionsWithSplit     pipe                 sortBy             toLocalIterator   zipWithIndex      
+compute        filter                getCheckpointFile   isInstanceOf       mapWith                    preferredLocations   sparkContext       toString          zipWithUniqueId   
+
+scala> res32.rdd.partition
+partitioner   partitions
+
+scala> res32.rdd.partition
+partitioner   partitions
+
+scala> res32.rdd.partition
+partitioner   partitions
+
+scala> res32.mapPartitions
+   def mapPartitions[R](f: Iterator[org.apache.spark.sql.Row] => Iterator[R])(implicit scala.reflect.ClassTag[R]): org.apache.spark.rdd.RDD[R]
+
+scala> res32.mapPartitions(x=>Array(2,3).iterator)
+res35: org.apache.spark.rdd.RDD[Int] = MapPartitionsRDD[63] at mapPartitions at <console>:28
+
+scala> res35.collect
+res36: Array[Int] = Array(2, 3, 2, 3)
+
+
+<dependency>
+    <groupId>org.scala-lang</groupId>
+    <artifactId>scala-library</artifactId>
+    <version>2.10.4</version>
+</dependency>
+
+
+
+<!-- https://mvnrepository.com/artifact/org.apache.spark/spark-core_2.11 -->
+<dependency>
+    <groupId>org.apache.spark</groupId>
+    <artifactId>spark-core_2.11</artifactId>
+    <version>1.6.0</version>
+</dependency>
+
+
+./spark-submit --class test1 --executor-memory 4g --num-executors 20 /data/lilei/ccc.jar /lilei/myfile1
+
+./spark-submit --class test5  --name vpn --master yarn-cluster --executor-memory 4g --num-executors 20 ./ccc.jar
+./spark-submit --class test5  --name vpn --master local --executor-memory 4g --num-executors 20 ./ccc.jar
+
+  914  ./spark-submit --class test1 --name vpn --master yarn-cluster --executor-memory 3500m --num-executors 20 /data/lilei/ccc.jar /lilei/myfile1 /lilei/wc16
+  915  ./spark-submit --class test1 --name vpn --master yarn-cluster --executor-memory 3500m --num-executors 50 /data/lilei/ccc.jar /lilei/myfile1 /lilei/wc17
+  916  ./spark-submit --class test1 --name vpn --master yarn-cluster --executor-memory 3500m --num-executors 50 /data/lilei/ccc.jar /lilei/myfile1 /lilei/wc18
+  917  ./spark-submit --class test1 --name vpn --master yarn-cluster --executor-memory 3500m --num-executors 13 /data/lilei/ccc.jar /lilei/myfile1 /lilei/wc19
+  918  ./spark-submit --class test1 --name vpn --master yarn-client --executor-memory 3500m --num-executors 13 /data/lilei/ccc.jar /lilei/myfile1 /lilei/wc20
+  919  ./spark-submit --class test1 --name vpn --master yarn-client --executor-memory 3500m --num-executors 13 /data/lilei/ccc.jar /lilei/myfile1 /lilei/wc21
+  920  ./spark-submit --class test1 --name vpn --master yarn-cluster --executor-memory 3500m --num-executors 13 /data/lilei/ccc.jar /lilei/myfile1 /lilei/wc22
+./spark-submit --class test5  --name vpn --master yarn --executor-memory 3g --num-executors 20 --jars ./jedis-2.8.0.jar ./ccc.jar
+
+./spark-submit --packages com.databricks:spark-csv_2.11:1.5.0 --class test2 /data/lilei/ccc.jar
+
+
+case class Customer(customer_id: Int, name: String)
+
+
+val dfCustomers = sc.textFile("data/customers.txt").map(_.split(",")).map(p => Customer(p(0).trim.toInt, p(1), p(2), p(3), p(4))).toDF()
+
+
+val dfCustomers = sc.textFile("/lilei/custer").map(_.split(",")).map(p => Customer(p(0).trim.toInt, p(1))).toDF()
+
+
+dfCustomers.registerTempTable("customers")
+
+
+实际使用时，一般通过后台启动metastore和hiveserver实现服务，命令如下：
+hive --service metastore &
+hive --service hiveserver &
