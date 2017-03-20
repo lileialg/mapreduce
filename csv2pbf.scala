@@ -38,10 +38,15 @@ object csv2pbf {
   }
 
   def main(args: Array[String]): Unit = {
+    
+    val sourceName = args(0)
+    val position = args(1)
+    val zooUrl = args(2)
+    
 
     val conf = new SparkConf()
-      .setAppName("first lunch")
-      .setMaster("local")
+    //      .setAppName("first lunch")
+    //      .setMaster("local")
 
     val sc = new SparkContext(conf)
 
@@ -51,11 +56,13 @@ object csv2pbf {
       .format("com.databricks.spark.csv")
       .option("header", "false")
       .option("inferSchema", "false")
-      .load("hdfs://192.168.4.128:9000/lilei/poi10")
+      //      .load("hdfs://192.168.4.128:9000/lilei/poi10")
+//      .load("hdfs://192.168.4.128:9000/lilei/green_face.csv")
+      .load(position)
 
     //转对象
 
-    val objs = df.map { x => POI2(x(0).toString().toInt, x(1).toString().split(";")(1)) }
+    val objs = df.map { x => POI2(x(0).toString().toInt, x(9).toString().split(";")(1)) }
 
     //生成tile_id
     val rdd2 = objs.map { x => (com.mercator.TileUtils.getTileIds(x.wkt, 15), x) }
@@ -70,14 +77,16 @@ object csv2pbf {
     val rdd5 = rdd4.reduceByKey(_ + "^" + _)
 
     //组装protobuf
-    val rdd6 = rdd5.map(x => (x._1, com.vector.tile.EncoderUtil.encodeSpark(x._2, x._1, "poi")))
+    val rdd6 = rdd5.map(x => (x._1, com.vector.tile.EncoderUtil.encodeSpark(x._2, x._1, sourceName)))
 
     //存储hbase
     rdd6.mapPartitions(f => {
 
       val conf = HBaseConfiguration.create()
 
-      conf.set("hbase.zookeeper.quorum", "Master.Hadoop:2181,Slave2.Hadoop:2181,Slave1.Hadoop:2181")
+//      conf.set("hbase.zookeeper.quorum", "Master.Hadoop:2181,Slave2.Hadoop:2181,Slave1.Hadoop:2181")
+      
+      conf.set("hbase.zookeeper.quorum", zooUrl)
 
       conf.set("hbase.zookeeper.property.clientPort", "2181")
 
@@ -85,11 +94,23 @@ object csv2pbf {
 
       import scala.collection.mutable.ListBuffer
       val puts = new ListBuffer[Put]
+
       for (x <- f) {
 
-        val put = new Put(x._1.getBytes)
-        put.addColumn("poi".getBytes, "value".getBytes, x._2)
-        puts += put
+        if (x._2.length > 0) {
+          val put = new Put(x._1.getBytes)
+          put.addColumn("data".getBytes, sourceName.getBytes, x._2)
+          puts += put
+
+        }
+
+        if (puts.size >= 5000) {
+          import scala.collection.JavaConverters._
+
+          tab.put(puts.asJava)
+
+          puts.clear()
+        }
       }
 
       import scala.collection.JavaConverters._
