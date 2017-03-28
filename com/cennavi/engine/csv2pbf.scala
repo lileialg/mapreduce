@@ -564,8 +564,6 @@ case class Restriction(wkt: String, restric_info: String) extends source {
 
 }
 
-
-
 object csv2pbf {
 
   //安装瓦片编号拆分数据行
@@ -601,6 +599,30 @@ object csv2pbf {
     val zooUrl = args(2)
     val zooms = args(3)
 
+    val conditions = args(4)
+    /**
+     * format : 0,1,2,3,4^=,!=,>=,in,not in^0-3-4-1,2,3-4,9
+     */
+
+    val domains = conditions.split("\\^")(0).split(",")
+    val relations = conditions.split("\\^")(1).split(",").zipWithIndex
+    val dvalues = conditions.split("\\^")(2).split("\\-")
+
+    val cs = scala.collection.mutable.ArrayBuffer[String]()
+
+    for (r <- relations) {
+      r._1 match {
+        case "="      => cs += "C" + domains(r._2) + "='" + dvalues(r._2) + "'"
+        case "!="     => cs += "C" + domains(r._2) + "!='" + dvalues(r._2) + "'"
+        case ">="     => cs += "GE(C" + domains(r._2) + "," + dvalues(r._2) + ")"
+        case ">"      => cs += "GT(C" + domains(r._2) + "," + dvalues(r._2) + ")"
+        case "<="     => cs += "LE(C" + domains(r._2) + "," + dvalues(r._2) + ")"
+        case "<"      => cs += "GE(C" + domains(r._2) + "," + dvalues(r._2) + ")"
+        case "in"     => cs += "VIN(C" + domains(r._2) + "," + dvalues(r._2) + ")"
+        case "not in" => cs += "VNOTIN(C" + domains(r._2) + "," + dvalues(r._2) + ")"
+      }
+    }
+
     val conf = new SparkConf()
     //      .setAppName("first lunch")
     //      .setMaster("local")
@@ -611,17 +633,54 @@ object csv2pbf {
 
     val sqlContext = new SQLContext(sc)
 
-    val df = sqlContext.read
+    import org.apache.spark.sql.functions._
+    sqlContext.udf.register("GT", (n: String, m: String) => {
+      n.toDouble > m.toDouble
+    })
+
+    sqlContext.udf.register("GE", (n: String, m: String) => {
+      n.toDouble >= m.toDouble
+    })
+
+    sqlContext.udf.register("LT", (n: String, m: String) => {
+      n.toDouble < m.toDouble
+    })
+
+    sqlContext.udf.register("LE", (n: String, m: String) => {
+      n.toDouble <= m.toDouble
+    })
+
+    sqlContext.udf.register("VIN", (n: String, m: String) => {
+      m.indexOf(n) >= 0
+    })
+
+    sqlContext.udf.register("VNOTIN", (n: String, m: String) => {
+      m.indexOf(n) < 0
+    })
+    
+    val paths = position.split(",")
+
+    var df = sqlContext.read
       .format("com.databricks.spark.csv")
       .option("header", "false")
       .option("inferSchema", "false")
-      //      .load("hdfs://192.168.4.128:9000/lilei/poi10")
-      //      .load("hdfs://192.168.4.128:9000/lilei/green_face.csv")
-      .load(position).repartition(20)
+      .load(paths(0))
+      
+    for(i <- 1 until paths.length ){
+      df = df.unionAll(sqlContext.read
+      .format("com.databricks.spark.csv")
+      .option("header", "false")
+      .option("inferSchema", "false")
+      .load(paths(i)))
+    }
+    
+    df = df.repartition(30)
+
+    df.registerTempTable(appId)
+
+    df = sqlContext.sql("select * from " + appId + " where 1=1 and " + cs.mkString(" and "))
 
     //转对象
-
-    val length = df.take(1)(0).length
 
     val objs =
       sourceName match {
